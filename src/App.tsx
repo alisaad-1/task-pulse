@@ -14,10 +14,12 @@ import { InventoryView } from './components/InventoryView';
 import { WorkView } from './components/WorkView';
 import { WorkAddModal } from './components/WorkAddModal';
 import { CategoriesView } from './components/CategoriesView';
+import { SplashScreen } from './components/SplashScreen';
 
 const WORK_STORAGE_KEY = 'taskpulse_work_items';
 
 export const App: React.FC = () => {
+  const [showSplash, setShowSplash] = useState<boolean>(true);
   const [tasks, setTasks] = useState<Task[]>(() => loadStoredTasks());
   const [currentView, setCurrentView] = useState<ViewMode>('categories');
   const [theme, setTheme] = useState<ThemeMode>('dark');
@@ -208,6 +210,9 @@ export const App: React.FC = () => {
   return (
     <div className="app-container">
       
+      {/* Splash Screen - shows on app launch then fades out */}
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+
       {/* Sidebar Navigation */}
       <Sidebar 
         isOpen={isSidebarOpen}
