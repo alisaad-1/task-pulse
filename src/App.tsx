@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, ViewMode, ThemeMode, TaskStatus } from './types/task';
+import { Task, ViewMode, ThemeMode, TaskStatus, WorkItem } from './types/task';
 import { loadStoredTasks, saveStoredTasks, exportTasksJSON, importTasksJSON, DEFAULT_CATEGORIES } from './utils/storage';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -10,13 +10,31 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { PomodoroTimer } from './components/PomodoroTimer';
 import { TaskModal } from './components/TaskModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { InventoryView } from './components/InventoryView';
+import { WorkView } from './components/WorkView';
+import { WorkAddModal } from './components/WorkAddModal';
+import { CategoriesView } from './components/CategoriesView';
+
+const WORK_STORAGE_KEY = 'taskpulse_work_items';
 
 export const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>(() => loadStoredTasks());
-  const [currentView, setCurrentView] = useState<ViewMode>('kanban');
+  const [currentView, setCurrentView] = useState<ViewMode>('categories');
   const [theme, setTheme] = useState<ThemeMode>('dark');
   const [accentHue, setAccentHue] = useState<number>(250);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+
+  // Work state
+  const [workItems, setWorkItems] = useState<WorkItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(WORK_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isWorkModalOpen, setIsWorkModalOpen] = useState<boolean>(false);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState<boolean>(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -26,6 +44,7 @@ export const App: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [defaultCategoryForNew, setDefaultCategoryForNew] = useState<string>('daily');
 
   // Pomodoro Active Task
   const [pomodoroTask, setPomodoroTask] = useState<Task | null>(null);
@@ -35,10 +54,20 @@ export const App: React.FC = () => {
     saveStoredTasks(tasks);
   }, [tasks]);
 
-  // Apply theme attributes and HSL accent color to <html> element
+  // Sync work items to LocalStorage
+  useEffect(() => {
+    localStorage.setItem(WORK_STORAGE_KEY, JSON.stringify(workItems));
+  }, [workItems]);
+
+  // Apply theme attributes and HSL accent color to <html> element & status bar
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.style.setProperty('--accent-h', String(accentHue));
+
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) {
+      themeMeta.setAttribute('content', theme === 'light' ? '#f1f5f9' : '#0b0f19');
+    }
   }, [theme, accentHue]);
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K search focus, Cmd+N new task)
@@ -80,7 +109,7 @@ export const App: React.FC = () => {
   // Category List
   const categoryNames = useMemo(() => {
     const customCats = tasks.map(t => t.category).filter(Boolean);
-    const set = new Set([...DEFAULT_CATEGORIES.map(c => c.name.toLowerCase().split(' ')[0]), ...customCats]);
+    const set = new Set(['daily', 'health', 'finance', 'entertainment', ...DEFAULT_CATEGORIES.map(c => c.name.toLowerCase().split(' ')[0]), ...customCats]);
     return Array.from(set);
   }, [tasks]);
 
@@ -99,8 +128,11 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleOpenNewModal = (initialStatus?: TaskStatus, initialDate?: string) => {
+  const handleOpenNewModal = (initialStatus?: TaskStatus, initialDate?: string, initialCategory?: string) => {
     setEditingTask(null);
+    if (initialCategory) {
+      setDefaultCategoryForNew(initialCategory);
+    }
     setIsModalOpen(true);
   };
 
@@ -125,7 +157,7 @@ export const App: React.FC = () => {
         description: taskData.description || '',
         status: taskData.status || 'todo',
         priority: taskData.priority || 'medium',
-        category: taskData.category || 'work',
+        category: taskData.category || defaultCategoryForNew || 'daily',
         dueDate: taskData.dueDate || new Date().toISOString().split('T')[0],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -136,6 +168,20 @@ export const App: React.FC = () => {
       };
       setTasks(prev => [newTask, ...prev]);
     }
+  };
+
+  const handleAddWorkItem = (value: number, category: string) => {
+    const newItem: WorkItem = {
+      id: `work-${Date.now()}`,
+      value,
+      category,
+      createdAt: new Date().toISOString()
+    };
+    setWorkItems(prev => [newItem, ...prev]);
+  };
+
+  const handleDeleteWorkItem = (id: string) => {
+    setWorkItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleStartPomodoro = (task: Task) => {
@@ -195,6 +241,18 @@ export const App: React.FC = () => {
 
         {/* Dynamic View Body */}
         <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+          {currentView === 'categories' && (
+            <CategoriesView 
+              tasks={filteredTasks}
+              onUpdateStatus={handleUpdateStatus}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+              onToggleSubtask={handleToggleSubtask}
+              onNewTaskWithCategory={(cat) => handleOpenNewModal(undefined, undefined, cat)}
+              onStartPomodoro={handleStartPomodoro}
+            />
+          )}
+
           {currentView === 'kanban' && (
             <KanbanBoard 
               tasks={filteredTasks}
@@ -225,6 +283,14 @@ export const App: React.FC = () => {
             />
           )}
 
+          {currentView === 'work' && (
+            <WorkView 
+              workItems={workItems}
+              onOpenAddModal={() => setIsWorkModalOpen(true)}
+              onDeleteWorkItem={handleDeleteWorkItem}
+            />
+          )}
+
           {currentView === 'analytics' && (
             <AnalyticsView tasks={tasks} />
           )}
@@ -241,6 +307,13 @@ export const App: React.FC = () => {
               }}
             />
           )}
+
+          {currentView === 'inventory' && (
+            <InventoryView 
+              isOpenModal={isInventoryModalOpen}
+              onCloseModal={() => setIsInventoryModalOpen(false)}
+            />
+          )}
         </main>
       </div>
 
@@ -253,11 +326,21 @@ export const App: React.FC = () => {
         categories={categoryNames}
       />
 
+      {/* Work Add Modal */}
+      <WorkAddModal 
+        isOpen={isWorkModalOpen}
+        onClose={() => setIsWorkModalOpen(false)}
+        onAdd={handleAddWorkItem}
+        categories={categoryNames}
+      />
+
       {/* Mobile Bottom Navigation Bar & FAB */}
       <MobileBottomNav 
         currentView={currentView}
         onViewChange={setCurrentView}
         onOpenNewTask={() => handleOpenNewModal()}
+        onOpenWorkModal={() => setIsWorkModalOpen(true)}
+        onOpenInventoryModal={() => setIsInventoryModalOpen(true)}
       />
 
     </div>

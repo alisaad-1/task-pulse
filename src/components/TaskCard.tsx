@@ -3,16 +3,10 @@ import { Task, TaskStatus } from '../types/task';
 import { 
   CheckCircle2, 
   Circle, 
-  Clock, 
-  Calendar, 
   MoreVertical, 
   Trash2, 
   Edit3, 
-  CheckSquare, 
-  Play,
-  Tag,
-  ChevronDown,
-  ChevronUp
+  Play
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 
@@ -21,7 +15,7 @@ interface TaskCardProps {
   onUpdateStatus: (taskId: string, newStatus: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   onStartPomodoro?: (task: Task) => void;
   isDragging?: boolean;
 }
@@ -31,16 +25,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onUpdateStatus,
   onEdit,
   onDelete,
-  onToggleSubtask,
   onStartPomodoro
 }) => {
-  const [showSubtasks, setShowSubtasks] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-
-  const completedSubtasks = task.subtasks.filter(st => st.completed).length;
-  const totalSubtasks = task.subtasks.length;
-  const progressPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
-
   const isDone = task.status === 'done';
 
   const handleStatusClick = (e: React.MouseEvent) => {
@@ -64,8 +51,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date(new Date().setHours(0,0,0,0)) && !isDone;
-
   return (
     <div 
       className={`glass-panel task-card ${isDone ? 'completed-card' : ''}`}
@@ -78,12 +63,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       }}
     >
       {/* Top Header: Checkbox, Title, Actions Menu */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button 
           onClick={handleStatusClick}
           className="btn-icon"
           style={{ 
-            marginTop: '2px',
             color: isDone ? 'var(--status-done)' : 'var(--text-muted)',
             padding: '2px'
           }}
@@ -101,25 +85,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
               textDecoration: isDone ? 'line-through' : 'none',
               cursor: 'pointer',
-              wordBreak: 'break-word'
+              wordBreak: 'break-word',
+              margin: 0
             }}
           >
             {task.title}
           </h4>
-
-          {task.description && (
-            <p style={{ 
-              fontSize: '0.85rem', 
-              color: 'var(--text-secondary)', 
-              marginTop: '4px',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
-            }}>
-              {task.description}
-            </p>
-          )}
         </div>
 
         {/* Quick Menu Button */}
@@ -210,118 +181,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </div>
 
-      {/* Subtasks Progress Bar & Toggle */}
-      {totalSubtasks > 0 && (
-        <div style={{ marginTop: '12px' }}>
-          <div 
-            onClick={() => setShowSubtasks(!showSubtasks)}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              fontSize: '0.78rem',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              marginBottom: '6px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckSquare size={14} />
-              <span>Subtasks ({completedSubtasks}/{totalSubtasks})</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>{progressPercent}%</span>
-              {showSubtasks ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </div>
-          </div>
-
-          <div style={{
-            height: '4px',
-            background: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '2px',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${progressPercent}%`,
-              background: progressPercent === 100 ? 'var(--status-done)' : 'var(--accent-color)',
-              transition: 'width 0.3s ease'
-            }} />
-          </div>
-
-          {/* Subtask list */}
-          {showSubtasks && (
-            <div style={{ marginTop: '8px', paddingLeft: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {task.subtasks.map((st) => (
-                <div 
-                  key={st.id}
-                  onClick={() => { onToggleSubtask(task.id, st.id); soundFx.playPopSound(); }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '0.82rem',
-                    color: st.completed ? 'var(--text-muted)' : 'var(--text-secondary)',
-                    textDecoration: st.completed ? 'line-through' : 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {st.completed ? <CheckCircle2 size={14} color="var(--status-done)" /> : <Circle size={14} />}
-                  <span>{st.title}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Meta Footer: Priority Badge, Category Tag, Due Date */}
+      {/* Footer: Priority Badge Only */}
       <div style={{
-        marginTop: '14px',
-        paddingTop: '10px',
+        marginTop: '10px',
+        paddingTop: '8px',
         borderTop: '1px solid var(--border-color)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px'
+        justifyContent: 'flex-start'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span className={`badge ${getPriorityClass(task.priority)}`}>
-            {task.priority}
-          </span>
-
-          {task.category && (
-            <span style={{
-              fontSize: '0.75rem',
-              padding: '2px 8px',
-              borderRadius: 'var(--radius-full)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-color)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <Tag size={10} />
-              {task.category}
-            </span>
-          )}
-        </div>
-
-        {task.dueDate && (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '4px',
-            fontSize: '0.78rem',
-            color: isOverdue ? '#ef4444' : 'var(--text-muted)',
-            fontWeight: isOverdue ? 600 : 400
-          }}>
-            <Calendar size={13} />
-            <span>{task.dueDate} {isOverdue && '(Overdue)'}</span>
-          </div>
-        )}
+        <span className={`badge ${getPriorityClass(task.priority)}`}>
+          {task.priority.toUpperCase()}
+        </span>
       </div>
     </div>
   );

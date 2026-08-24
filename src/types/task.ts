@@ -31,7 +31,23 @@ export interface Task {
   tags: string[];
 }
 
-export type ViewMode = 'kanban' | 'list' | 'calendar' | 'analytics' | 'pomodoro';
+export type ViewMode = 'categories' | 'kanban' | 'list' | 'calendar' | 'analytics' | 'pomodoro' | 'inventory' | 'work';
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  category: string;
+  priority?: Priority;
+  createdAt: string;
+}
+
+export interface WorkItem {
+  id: string;
+  value: number;
+  category: string;
+  createdAt: string;
+}
 
 export type ThemeMode = 'dark' | 'light' | 'cyberpunk';
 
