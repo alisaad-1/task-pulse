@@ -22,7 +22,10 @@ export const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState<boolean>(true);
   const [tasks, setTasks] = useState<Task[]>(() => loadStoredTasks());
   const [currentView, setCurrentView] = useState<ViewMode>('categories');
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('taskpulse_theme');
+    return (saved === 'light' || saved === 'dark') ? saved as ThemeMode : 'dark';
+  });
   const [accentHue, setAccentHue] = useState<number>(250);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
@@ -235,7 +238,7 @@ export const App: React.FC = () => {
           onSearchChange={setSearchQuery}
           onOpenNewTaskModal={() => handleOpenNewModal()}
           theme={theme}
-          onThemeChange={setTheme}
+          onThemeChange={(t) => { setTheme(t); localStorage.setItem('taskpulse_theme', t); }}
           accentHue={accentHue}
           onAccentChange={setAccentHue}
           totalTasks={tasks.length}
