@@ -5,8 +5,7 @@ import {
   Circle, 
   MoreVertical, 
   Trash2, 
-  Edit3, 
-  Play
+  Edit3
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 
@@ -136,27 +135,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               >
                 <Edit3 size={14} /> Edit Task
               </button>
-
-              {onStartPomodoro && (
-                <button 
-                  onClick={() => { setShowMenu(false); onStartPomodoro(task); }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--accent-color)',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <Play size={14} /> Focus Session
-                </button>
-              )}
 
               <button 
                 onClick={() => { setShowMenu(false); onDelete(task.id); soundFx.playPopSound(); }}
