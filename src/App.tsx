@@ -92,9 +92,12 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Filtered Tasks list
+  // Active unarchived tasks
+  const activeTasks = useMemo(() => tasks.filter(t => !t.archived), [tasks]);
+
+  // Filtered Tasks list (only active tasks)
   const filteredTasks = useMemo(() => {
-    return tasks.filter((t) => {
+    return activeTasks.filter((t) => {
       // Search filter
       const matchesSearch = 
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -109,18 +112,68 @@ export const App: React.FC = () => {
 
       return matchesSearch && matchesCat && matchesPriority;
     });
-  }, [tasks, searchQuery, selectedCategory, selectedPriority]);
+  }, [activeTasks, searchQuery, selectedCategory, selectedPriority]);
 
   // Category List
   const categoryNames = useMemo(() => {
     const customCats = tasks.map(t => t.category).filter(Boolean);
-    const set = new Set(['daily', 'health', 'finance', 'entertainment', ...DEFAULT_CATEGORIES.map(c => c.name.toLowerCase().split(' ')[0]), ...customCats]);
+    const set = new Set(['daily', 'health', 'mental', 'entertainment', ...DEFAULT_CATEGORIES.map(c => c.name.toLowerCase().split(' ')[0]), ...customCats]);
     return Array.from(set);
   }, [tasks]);
 
   // Handlers
   const handleUpdateStatus = (taskId: string, newStatus: TaskStatus) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t));
+  };
+
+  const handleMoveTask = (taskId: string, newCategory: string) => {
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, category: newCategory, updatedAt: new Date().toISOString() } : t
+    ));
+  };
+
+  const handleArchiveCompleted = () => {
+    setTasks(prev => prev.map(t => {
+      if (t.status === 'done' && !t.archived) {
+        const cat = (t.category || '').toLowerCase();
+        const isHealth = ['health', 'fitness', 'wellness', 'sports'].some(h => cat.includes(h));
+        const isMental = ['mental', 'mind', 'focus', 'meditation', 'learning'].some(m => cat.includes(m));
+        if (!isHealth && !isMental) {
+          return { ...t, archived: true, archivedAt: new Date().toISOString() };
+        }
+      }
+      return t;
+    }));
+  };
+
+  const handleResetCompleted = () => {
+    setTasks(prev => prev.map(t => {
+      if (!t.archived) {
+        const hasCompletedSubtasks = t.subtasks && t.subtasks.some(st => st.completed);
+        if (t.status === 'done' || hasCompletedSubtasks) {
+          const resetSubtasks = (t.subtasks || []).map(st => ({ ...st, completed: false }));
+          return { 
+            ...t, 
+            status: 'todo', 
+            subtasks: resetSubtasks, 
+            updatedAt: new Date().toISOString() 
+          };
+        }
+      }
+      return t;
+    }));
+  };
+
+  const handleArchiveTask = (taskId: string) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, archived: true, archivedAt: new Date().toISOString() } : t));
+  };
+
+  const handleRestoreTask = (taskId: string) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, archived: false, archivedAt: undefined } : t));
+  };
+
+  const handleClearArchive = () => {
+    setTasks(prev => prev.filter(t => !t.archived));
   };
 
   const handleToggleSubtask = (taskId: string, subtaskId: string) => {
@@ -169,7 +222,8 @@ export const App: React.FC = () => {
         subtasks: taskData.subtasks || [],
         estimatedMinutes: taskData.estimatedMinutes || 30,
         timeSpentMinutes: 0,
-        tags: taskData.tags || []
+        tags: taskData.tags || [],
+        archived: false
       };
       setTasks(prev => [newTask, ...prev]);
     }
@@ -208,7 +262,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const completedCount = tasks.filter(t => t.status === 'done').length;
+  const completedCount = activeTasks.filter(t => t.status === 'done').length;
 
   return (
     <div className="app-container">
@@ -227,7 +281,7 @@ export const App: React.FC = () => {
         selectedPriority={selectedPriority}
         onPriorityChange={setSelectedPriority}
         categories={categoryNames}
-        totalTasks={tasks.length}
+        totalTasks={activeTasks.length}
         completedTasks={completedCount}
       />
 
@@ -241,7 +295,7 @@ export const App: React.FC = () => {
           onThemeChange={(t) => { setTheme(t); localStorage.setItem('taskpulse_theme', t); }}
           accentHue={accentHue}
           onAccentChange={setAccentHue}
-          totalTasks={tasks.length}
+          totalTasks={activeTasks.length}
           completedTasks={completedCount}
           onExport={handleExportData}
           onImport={handleImportData}
@@ -258,6 +312,10 @@ export const App: React.FC = () => {
               onToggleSubtask={handleToggleSubtask}
               onNewTaskWithCategory={(cat) => handleOpenNewModal(undefined, undefined, cat)}
               onStartPomodoro={handleStartPomodoro}
+              onArchiveCompleted={handleArchiveCompleted}
+              onArchiveTask={handleArchiveTask}
+              onResetCompleted={handleResetCompleted}
+              onMoveTask={handleMoveTask}
             />
           )}
 
@@ -300,7 +358,12 @@ export const App: React.FC = () => {
           )}
 
           {currentView === 'analytics' && (
-            <AnalyticsView tasks={tasks} />
+            <AnalyticsView 
+              tasks={tasks}
+              onRestoreTask={handleRestoreTask}
+              onDeleteTask={handleDeleteTask}
+              onClearArchive={handleClearArchive}
+            />
           )}
 
           {currentView === 'pomodoro' && (
@@ -331,6 +394,7 @@ export const App: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveTask}
         initialTask={editingTask}
+        defaultCategory={defaultCategoryForNew}
         categories={categoryNames}
       />
 

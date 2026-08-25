@@ -29,6 +29,8 @@ export interface Task {
   estimatedMinutes?: number;
   timeSpentMinutes?: number;
   tags: string[];
+  archived?: boolean;
+  archivedAt?: string;
 }
 
 export type ViewMode = 'categories' | 'kanban' | 'list' | 'calendar' | 'analytics' | 'pomodoro' | 'inventory' | 'work';

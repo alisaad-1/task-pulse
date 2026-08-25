@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { InventoryItem, Priority } from '../types/task';
-import { Plus, Trash2, ShoppingCart, Tag, X, Check } from 'lucide-react';
+import { Plus, Trash2, ShoppingCart, Tag, X } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 
 const INVENTORY_STORAGE_KEY = 'taskpulse_inventory_v1';
@@ -48,7 +48,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   // Form fields
   const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState(1);
   const [category, setCategory] = useState<InventoryCategory>('food');
   const [priority, setPriority] = useState<Priority>('medium');
 
@@ -57,7 +56,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     const newItem: InventoryItem = {
       id: `inv-${Date.now()}`,
       name: name.trim(),
-      quantity,
+      quantity: 1,
       category,
       priority,
       createdAt: new Date().toISOString()
@@ -67,7 +66,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     saveInventory(updated);
     soundFx.playCompleteSound();
     setName('');
-    setQuantity(1);
     setCategory('food');
     setPriority('medium');
     handleCloseModalInternal();
@@ -75,15 +73,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   const handleDelete = (id: string) => {
     const updated = items.filter(i => i.id !== id);
-    setItems(updated);
-    saveInventory(updated);
-    soundFx.playPopSound();
-  };
-
-  const handleQuantityChange = (id: string, delta: number) => {
-    const updated = items.map(i =>
-      i.id === id ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i
-    );
     setItems(updated);
     saveInventory(updated);
     soundFx.playPopSound();
@@ -98,32 +87,69 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     }
   };
 
-  const categoryFilterOptions = ['All', ...INVENTORY_CATEGORIES];
-
   const filteredItems = filterCategory === 'All'
     ? items
-    : items.filter(i => (i.category || '').toLowerCase() === filterCategory.toLowerCase());
+    : items.filter(i => i.category === filterCategory);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '80px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '30px' }}>
 
-      {/* Top Category Filter Pills (All, food, personal, futuretasks) */}
-      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
-        {categoryFilterOptions.map(cat => (
+      {/* Header Bar */}
+      <div className="glass-panel" style={{
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px', height: '40px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-glow)',
+            color: 'var(--accent-color)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <ShoppingCart size={20} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+              Purchases Inventory
+            </h2>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {items.length} items listed
+            </div>
+          </div>
+        </div>
+
+        <button
+          className="btn btn-primary"
+          onClick={() => { setShowModal(true); soundFx.playPopSound(); }}
+          style={{ fontSize: '0.85rem', padding: '8px 14px' }}
+        >
+          <Plus size={16} /> Add Item
+        </button>
+      </div>
+
+      {/* Category Filter Chips */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+        {['All', ...INVENTORY_CATEGORIES].map(cat => (
           <button
             key={cat}
             onClick={() => { setFilterCategory(cat); soundFx.playPopSound(); }}
             style={{
               padding: '6px 14px',
               borderRadius: 'var(--radius-full)',
-              border: filterCategory === cat ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
-              background: filterCategory === cat ? 'var(--accent-glow)' : 'transparent',
+              border: filterCategory === cat ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
+              background: filterCategory === cat ? 'var(--accent-glow)' : 'var(--bg-card)',
               color: filterCategory === cat ? 'var(--accent-color)' : 'var(--text-secondary)',
               fontSize: '0.8rem',
               fontWeight: 700,
               cursor: 'pointer',
+              textTransform: 'capitalize',
               whiteSpace: 'nowrap',
-              textTransform: cat === 'All' ? 'none' : 'lowercase'
+              transition: 'all 0.2s ease'
             }}
           >
             {cat}
@@ -131,49 +157,48 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         ))}
       </div>
 
-      {/* Inventory Items List */}
+      {/* Items List */}
       {filteredItems.length === 0 ? (
         <div className="glass-panel" style={{
-          padding: '40px 20px',
+          padding: '60px 20px',
           textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '10px'
+          color: 'var(--text-secondary)'
         }}>
-          <ShoppingCart size={40} color="var(--text-muted)" />
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>
-            No items in {filterCategory === 'All' ? 'inventory' : filterCategory} yet
+          <ShoppingCart size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
+          <p style={{ margin: 0, fontWeight: 600 }}>No purchase items yet</p>
+          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Tap "Add Item" to list what you need to buy
           </p>
-          <button className="btn btn-secondary" onClick={() => setShowModal(true)} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-            + Add Item
-          </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {filteredItems.map(item => (
-            <div key={item.id} className="glass-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-
-              {/* Shopping Icon */}
-              <div style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--accent-glow)',
+            <div
+              key={item.id}
+              className="glass-panel"
+              style={{
+                padding: '12px 16px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <ShoppingCart size={18} color="var(--accent-color)" />
-              </div>
-
-              {/* Info */}
+                justifyContent: 'space-between',
+                gap: '12px',
+                borderRadius: 'var(--radius-sm)'
+              }}
+            >
+              {/* Info - Full wrapping without truncation */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  color: 'var(--text-primary)',
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  lineHeight: 1.4
+                }}>
                   {item.name}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                   <span className={`badge ${getPriorityClass(item.priority || 'medium')}`}>
                     {(item.priority || 'medium').toUpperCase()}
                   </span>
@@ -194,51 +219,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 </div>
               </div>
 
-              {/* Quantity Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                <button
-                  onClick={() => handleQuantityChange(item.id, -1)}
-                  style={{
-                    width: '28px', height: '28px',
-                    borderRadius: '50%',
-                    border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
-                    color: 'var(--text-primary)',
-                    fontSize: '1.1rem',
-                    cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
-                >−</button>
-
-                <span style={{
-                  minWidth: '30px',
-                  textAlign: 'center',
-                  fontWeight: 800,
-                  fontSize: '1rem',
-                  color: item.quantity === 0 ? '#ef4444' : 'var(--text-primary)',
-                  fontFamily: 'var(--font-mono)'
-                }}>
-                  {item.quantity}
-                </span>
-
-                <button
-                  onClick={() => handleQuantityChange(item.id, 1)}
-                  style={{
-                    width: '28px', height: '28px',
-                    borderRadius: '50%',
-                    border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
-                    color: 'var(--text-primary)',
-                    fontSize: '1.1rem',
-                    cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
-                >+</button>
-              </div>
-
-              {/* Delete */}
-              <button className="btn-icon" onClick={() => handleDelete(item.id)}>
-                <Trash2 size={16} color="#ef4444" />
+              {/* Delete Action */}
+              <button
+                className="btn-icon"
+                onClick={() => handleDelete(item.id)}
+                style={{ padding: '6px', color: '#ef4444', flexShrink: 0 }}
+                title="Delete item"
+              >
+                <Trash2 size={16} />
               </button>
             </div>
           ))}
@@ -302,77 +290,52 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </div>
 
             {/* Priority Level */}
-            <div style={{ marginBottom: '14px' }}>
+            <div style={{ marginBottom: '18px' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Priority Level *
               </label>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {(['low', 'medium', 'high'] as Priority[]).map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    onClick={() => setPriority(p)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 4px',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      borderRadius: 'var(--radius-sm)',
-                      textTransform: 'uppercase',
-                      border: priority === p ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
-                      background: priority === p ? 'var(--accent-glow)' : 'transparent',
-                      color: 'var(--text-primary)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {p}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {(['low', 'medium', 'high'] as Priority[]).map((p) => {
+                  const isSelected = priority === p;
+                  const activeBorder = p === 'high' ? '#ff3b30' : p === 'medium' ? '#f59e0b' : '#38bdf8';
+                  const activeBg = p === 'high' ? 'rgba(255, 59, 48, 0.18)' : p === 'medium' ? 'rgba(245, 158, 11, 0.18)' : 'rgba(56, 189, 248, 0.18)';
+                  const activeColor = p === 'high' ? '#ff3b30' : p === 'medium' ? '#f59e0b' : '#38bdf8';
+
+                  return (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() => setPriority(p)}
+                      style={{
+                        flex: 1,
+                        padding: '10px 4px',
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        borderRadius: 'var(--radius-sm)',
+                        textTransform: 'uppercase',
+                        border: isSelected ? `2px solid ${activeBorder}` : '1px solid var(--border-color)',
+                        background: isSelected ? activeBg : 'transparent',
+                        color: isSelected ? activeColor : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Quantity */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Quantity
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  onClick={() => setQuantity(q => Math.max(0, q - 1))}
-                  style={{
-                    width: '38px', height: '38px', borderRadius: '50%',
-                    border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
-                    color: 'var(--text-primary)',
-                    fontSize: '1.2rem', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
-                >−</button>
-                <span style={{ fontSize: '1.6rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-color)', minWidth: '40px', textAlign: 'center' }}>
-                  {quantity}
-                </span>
-                <button
-                  onClick={() => setQuantity(q => q + 1)}
-                  style={{
-                    width: '38px', height: '38px', borderRadius: '50%',
-                    border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
-                    color: 'var(--text-primary)',
-                    fontSize: '1.2rem', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
-                >+</button>
-              </div>
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className="btn btn-secondary" onClick={handleCloseModalInternal}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleAdd} disabled={!name.trim()}>
+                Add Item
+              </button>
             </div>
-
-            {/* Save Button */}
-            <button
-              className="btn btn-primary"
-              onClick={handleAdd}
-              style={{ width: '100%', padding: '12px', fontSize: '0.95rem', borderRadius: 'var(--radius-full)' }}
-            >
-              <Check size={16} /> Add to Purchases Inventory
-            </button>
 
           </div>
         </div>

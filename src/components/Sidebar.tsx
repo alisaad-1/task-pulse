@@ -6,7 +6,7 @@ import {
   ListTodo, 
   Calendar as CalendarIcon, 
   BarChart2, 
-  Timer, 
+  Timer,
   Briefcase,
   ShoppingCart
 } from 'lucide-react';
@@ -32,14 +32,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onViewChange
 }) => {
   const navItems: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'categories', label: 'Main Sections (الأقسام)', icon: <FolderKanban size={18} /> },
-    { id: 'inventory', label: 'Purchases Inventory', icon: <ShoppingCart size={18} /> },
+    { id: 'categories', label: 'Main Tasks (الأقسام)', icon: <FolderKanban size={18} /> },
     { id: 'work', label: 'Work Dashboard', icon: <Briefcase size={18} /> },
     { id: 'kanban', label: 'Kanban Board', icon: <LayoutGrid size={18} /> },
     { id: 'list', label: 'Data Table List', icon: <ListTodo size={18} /> },
     { id: 'calendar', label: 'Calendar View', icon: <CalendarIcon size={18} /> },
-    { id: 'analytics', label: 'Analytics Dashboard', icon: <BarChart2 size={18} /> },
-    { id: 'pomodoro', label: 'Pomodoro Focus', icon: <Timer size={18} /> }
+    { id: 'analytics', label: 'Analytics & Archive', icon: <BarChart2 size={18} /> },
+    { id: 'pomodoro', label: 'Pomodoro Focus', icon: <Timer size={18} /> },
+    { id: 'inventory', label: 'Purchases Inventory', icon: <ShoppingCart size={18} /> }
   ];
 
   const handleNavClick = (view: ViewMode) => {
