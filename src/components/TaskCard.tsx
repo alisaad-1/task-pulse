@@ -32,7 +32,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onArchive
 }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const [showSubtasks, setShowSubtasks] = useState(true);
+  const [showSubtasks, setShowSubtasks] = useState(false);
   const isDone = task.status === 'done';
 
   const subtasks = task.subtasks || [];

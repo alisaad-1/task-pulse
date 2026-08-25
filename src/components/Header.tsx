@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
       flexDirection: 'column',
       gap: '10px'
     }}>
-      {/* Top Row: Centered Logo & Brand Name (Larger & Prominent) */}
+      {/* Top Row: Centered Logo & Brand Name */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
         </h1>
       </div>
 
-      {/* Sub Row: Left = Completed Task Counter, Right = Theme Switcher & New Task */}
+      {/* Sub Row: Left = Completed Task Counter, Right = Theme Switcher */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -79,15 +79,16 @@ export const Header: React.FC<HeaderProps> = ({
           {completedTasks} / {totalTasks} Completed
         </div>
 
-        {/* Right: Theme Switcher & New Task Button (Larger & Touch Friendly) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Right Action Group */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Light / Dark Mode Toggle */}
           <button 
             className="btn-icon" 
             onClick={toggleTheme}
             title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
             style={{
-              padding: '8px',
+              width: '36px',
+              height: '36px',
               borderRadius: '50%',
               background: 'rgba(255, 255, 255, 0.1)',
               color: 'var(--text-primary)',

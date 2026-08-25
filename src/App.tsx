@@ -29,7 +29,7 @@ export const App: React.FC = () => {
   const [accentHue, setAccentHue] = useState<number>(250);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
-  // Work state
+  // Work & Modals state
   const [workItems, setWorkItems] = useState<WorkItem[]>(() => {
     try {
       const stored = localStorage.getItem(WORK_STORAGE_KEY);

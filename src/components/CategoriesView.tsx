@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Task, TaskStatus } from '../types/task';
 import { TaskCard } from './TaskCard';
 import { 
@@ -124,10 +124,27 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Auto-scroll refs
+  const autoScrollSpeedRef = useRef<number>(0);
+  const autoScrollRafRef = useRef<number | null>(null);
+  const lastTouchPosRef = useRef<{ x: number; y: number } | null>(null);
+
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+  };
+
+  const removeAllGhosts = () => {
+    document.querySelectorAll('.task-drag-ghost').forEach(el => el.remove());
+  };
+
+  const stopAutoScroll = () => {
+    autoScrollSpeedRef.current = 0;
+    if (autoScrollRafRef.current) {
+      cancelAnimationFrame(autoScrollRafRef.current);
+      autoScrollRafRef.current = null;
     }
   };
 
@@ -177,8 +194,45 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
     return null;
   }, []);
 
+  // Auto-scroll animation loop while dragging
+  const startAutoScrollIfNeeded = useCallback(() => {
+    if (autoScrollRafRef.current) return;
+
+    const loop = () => {
+      if (!dragState.current.activated) {
+        stopAutoScroll();
+        return;
+      }
+
+      const speed = autoScrollSpeedRef.current;
+      if (speed !== 0) {
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+          mainEl.scrollTop += speed;
+        } else {
+          window.scrollBy(0, speed);
+        }
+
+        // Re-evaluate drop target section as the view scrolls
+        if (lastTouchPosRef.current) {
+          const over = getSectionAtPoint(lastTouchPosRef.current.x, lastTouchPosRef.current.y);
+          if (over !== dragState.current.overSection) {
+            dragState.current.overSection = over;
+            setDragOverSection(over);
+          }
+        }
+      }
+
+      autoScrollRafRef.current = requestAnimationFrame(loop);
+    };
+
+    autoScrollRafRef.current = requestAnimationFrame(loop);
+  }, [getSectionAtPoint]);
+
   const createGhost = (task: Task, tx: number, ty: number): HTMLElement => {
+    removeAllGhosts();
     const ghost = document.createElement('div');
+    ghost.className = 'task-drag-ghost';
     ghost.textContent = '✦ ' + task.title;
     Object.assign(ghost.style, {
       position: 'fixed',
@@ -193,7 +247,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
       borderRadius: '12px',
       boxShadow: '0 10px 35px rgba(168,85,247,0.6)',
       pointerEvents: 'none',
-      zIndex: '9999',
+      zIndex: '99999',
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -204,6 +258,86 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
     document.body.appendChild(ghost);
     return ghost;
   };
+
+  // Window-level touchmove listener during active drag
+  const handleGlobalTouchMove = useCallback((e: TouchEvent) => {
+    const ds = dragState.current;
+    if (!ds.activated || !ds.taskId) return;
+
+    if (e.cancelable) {
+      e.preventDefault(); // Prevents iOS overscroll / page pulling up
+    }
+
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    lastTouchPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+    if (ds.ghost) {
+      ds.ghost.style.top = `${touch.clientY - 22}px`;
+      ds.ghost.style.left = `${touch.clientX - 110}px`;
+    }
+
+    const over = getSectionAtPoint(touch.clientX, touch.clientY);
+    if (over !== ds.overSection) {
+      ds.overSection = over;
+      setDragOverSection(over);
+    }
+
+    // Auto-scroll when dragging near top or bottom edges of viewport
+    const topEdgeZone = 140; // top 140px zone
+    const bottomEdgeZone = window.innerHeight - 140; // bottom 140px zone
+
+    if (touch.clientY < topEdgeZone) {
+      const intensity = Math.min(1, (topEdgeZone - touch.clientY) / topEdgeZone);
+      autoScrollSpeedRef.current = -Math.round(4 + intensity * 14);
+      startAutoScrollIfNeeded();
+    } else if (touch.clientY > bottomEdgeZone) {
+      const intensity = Math.min(1, (touch.clientY - bottomEdgeZone) / (window.innerHeight - bottomEdgeZone));
+      autoScrollSpeedRef.current = Math.round(4 + intensity * 14);
+      startAutoScrollIfNeeded();
+    } else {
+      autoScrollSpeedRef.current = 0;
+    }
+  }, [getSectionAtPoint, startAutoScrollIfNeeded]);
+
+  // Window-level touchend / touchcancel listener guarantees clean reset & no floating ghost
+  const handleGlobalTouchEnd = useCallback(() => {
+    clearLongPressTimer();
+    stopAutoScroll();
+
+    window.removeEventListener('touchmove', handleGlobalTouchMove);
+    window.removeEventListener('touchend', handleGlobalTouchEnd);
+    window.removeEventListener('touchcancel', handleGlobalTouchEnd);
+
+    removeAllGhosts();
+
+    const ds = dragState.current;
+    if (ds.activated && ds.taskId && ds.overSection && ds.overSection !== ds.fromSection && onMoveTask) {
+      onMoveTask(ds.taskId, ds.overSection);
+      soundFx.playCompleteSound();
+    }
+
+    dragState.current = {
+      taskId: null, task: null, fromSection: null,
+      ghost: null, overSection: null,
+      startX: 0, startY: 0, activated: false
+    };
+    setDraggingTaskId(null);
+    setDragOverSection(null);
+  }, [handleGlobalTouchMove, onMoveTask]);
+
+  // Clean up global listeners & auto scroll on unmount
+  useEffect(() => {
+    return () => {
+      clearLongPressTimer();
+      stopAutoScroll();
+      window.removeEventListener('touchmove', handleGlobalTouchMove);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
+      removeAllGhosts();
+    };
+  }, [handleGlobalTouchMove, handleGlobalTouchEnd]);
 
   // Long press drag start (only activates after holding for 350ms)
   const handleTouchStart = useCallback((e: React.TouchEvent, task: Task, fromSectionId: string) => {
@@ -230,65 +364,28 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
           navigator.vibrate(35);
         }
         soundFx.playPopSound();
+
+        // Listen on window with passive: false to prevent iOS page scrolling
+        window.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
+        window.addEventListener('touchend', handleGlobalTouchEnd);
+        window.addEventListener('touchcancel', handleGlobalTouchEnd);
       }
     }, 350);
-  }, []);
+  }, [handleGlobalTouchMove, handleGlobalTouchEnd]);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handleTouchMoveLocal = useCallback((e: React.TouchEvent) => {
     const ds = dragState.current;
-    if (!ds.taskId || !ds.task) return;
+    if (!ds.taskId || ds.activated) return;
 
     const touch = e.touches[0];
     const dx = Math.abs(touch.clientX - ds.startX);
     const dy = Math.abs(touch.clientY - ds.startY);
 
     // If moved more than 8px before long press fires, cancel long press (allow smooth normal scroll)
-    if (!ds.activated) {
-      if (dx > 8 || dy > 8) {
-        clearLongPressTimer();
-      }
-      return;
+    if (dx > 8 || dy > 8) {
+      clearLongPressTimer();
     }
-
-    // Drag mode is active -> prevent page scroll
-    if (e.cancelable) {
-      e.preventDefault();
-    }
-
-    if (ds.ghost) {
-      ds.ghost.style.top = `${touch.clientY - 22}px`;
-      ds.ghost.style.left = `${touch.clientX - 110}px`;
-    }
-
-    const over = getSectionAtPoint(touch.clientX, touch.clientY);
-    if (over !== ds.overSection) {
-      ds.overSection = over;
-      setDragOverSection(over);
-    }
-  }, [getSectionAtPoint]);
-
-  const handleTouchEnd = useCallback(() => {
-    clearLongPressTimer();
-    const ds = dragState.current;
-
-    if (ds.ghost) {
-      document.body.removeChild(ds.ghost);
-      ds.ghost = null;
-    }
-
-    if (ds.activated && ds.taskId && ds.overSection && ds.overSection !== ds.fromSection && onMoveTask) {
-      onMoveTask(ds.taskId, ds.overSection);
-      soundFx.playCompleteSound();
-    }
-
-    dragState.current = {
-      taskId: null, task: null, fromSection: null,
-      ghost: null, overSection: null,
-      startX: 0, startY: 0, activated: false
-    };
-    setDraggingTaskId(null);
-    setDragOverSection(null);
-  }, [onMoveTask]);
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '20px' }}>
@@ -519,9 +616,9 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
                           touchAction: 'pan-y'
                         }}
                         onTouchStart={(e) => handleTouchStart(e, task, section.id)}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                        onTouchCancel={handleTouchEnd}
+                        onTouchMove={handleTouchMoveLocal}
+                        onTouchEnd={handleGlobalTouchEnd}
+                        onTouchCancel={handleGlobalTouchEnd}
                       >
                         <TaskCard
                           task={task}
